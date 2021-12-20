@@ -1,7 +1,7 @@
 apiVersion: meta.pkg.crossplane.io/v1alpha1
 kind: Configuration
 metadata:
-  name: terraform-examples-unsupported-resources
+  name: terraform-modules-eks
   annotations:
     provider: terraform
 spec:

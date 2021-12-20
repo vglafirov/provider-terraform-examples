@@ -1,68 +1,38 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: Composition
 metadata:
-  name: compositevms.example.org
+  name: compositeclusters.hopin.com
   labels:
     provider: terraform
 spec:
   writeConnectionSecretsToNamespace: crossplane-system
   compositeTypeRef:
-    apiVersion: example.org/v1alpha1
-    kind: CompositeVM
+    apiVersion: hopin.com/v1alpha1
+    kind: CompositeCluster
   resources:
-    - name: terraform-gcp-vm
+    - name: terraform-modules-eks
       base:
         apiVersion: tf.crossplane.io/v1alpha1
         kind: Workspace
         spec:
           forProvider:
-            source: Inline
-            module: |
-              // The values of these variables are set by the 'vars' YAML block
-              // below, which can in turn be set by composition patches.
-              variable "machine_type" {
-                type = string
-              }
-
-              variable "zone" {
-                type = string
-              }
-
-              // Expose the VM's internal IP address as a Crossplane connection
-              // secret key named 'address'.
-              output "address" {
-                value = google_compute_instance.vm.network_interface.0.network_ip
-              }
-
-              resource "google_compute_instance" "vm" {
-                // We use the workspace name to derive the compute instance's
-                // name from the workspace's external name annotation.
-                name         = terraform.workspace
-
-                // The machine type and zone are exposed as Terraform variables.
-                // This lets us use FromCompositeFieldPath patches to derive
-                // their values from the composite resource.
-                machine_type = var.machine_type
-                zone         = var.zone
-              
-                boot_disk {
-                  initialize_params {
-                    image = "debian-cloud/debian-9"
-                  }
-                }
-              
-                network_interface {
-                  network = "default"
-              
-                  access_config {
-                    // Ephemeral IP
-                  }
-                }
-              }
+            source: Remote
+            module: github.com/hopin-team/terraform-modules/releases/tag/eks-cluster-v1.2.0
             vars:
-              # We patch in the values for these variables below.
-              - key: machine_type
-              - key: zone
+              - key: environment
+              - key: aws_region
+              - key: name
+              - key: profile
+              - key: private_subnets
+              - key: public_subnets
+              - key: branch
+              - key: flux_version
+              - key: kubernetes_version
+              - key: min_size
+              - key: max_size
+              - key: initial_size
+              - key: instance_types
+              - key: instance_disk_size
           writeConnectionSecretToRef:
             namespace: crossplane-system
       patches:
@@ -70,28 +40,61 @@ spec:
           fromFieldPath: "metadata.annotations[crossplane.io/external-name]"
           toFieldPath: "metadata.annotations[crossplane.io/external-name]"
         - type: FromCompositeFieldPath
-          fromFieldPath: "spec.parameters.size"
+          fromFieldPath: "spec.parameters.environemnt"
           toFieldPath: "spec.forProvider.vars[0].value"
-          transforms:
-            - type: map
-              map:
-                small: e2-standard-2
-                medium: e2-standard-8
-                large: e2-standard-32
         - type: FromCompositeFieldPath
-          fromFieldPath: "spec.parameters.location"
+          fromFieldPath: "spec.parameters.region"
           toFieldPath: "spec.forProvider.vars[1].value"
-          transforms:
-            - type: map
-              map:
-                east-coast: us-east1-b
-                west-coast: us-west1-b
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.name"
+          toFieldPath: "spec.forProvider.vars[2].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.profile"
+          toFieldPath: "spec.forProvider.vars[3].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.privateSubnets"
+          toFieldPath: "spec.forProvider.vars[4].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.publicSubnets"
+          toFieldPath: "spec.forProvider.vars[5].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.branch"
+          toFieldPath: "spec.forProvider.vars[6].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.fluxVersion"
+          toFieldPath: "spec.forProvider.vars[7].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.kubernetesVersion"
+          toFieldPath: "spec.forProvider.vars[8].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.minSize"
+          toFieldPath: "spec.forProvider.vars[9].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.maxSize"
+          toFieldPath: "spec.forProvider.vars[10].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.initialSize"
+          toFieldPath: "spec.forProvider.vars[11].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.instanceTypes"
+          toFieldPath: "spec.forProvider.vars[12].value"
+        - type: FromCompositeFieldPath
+          fromFieldPath: "spec.parameters.instanceDiskSize"
+          toFieldPath: "spec.forProvider.vars[13].value"
+        # - type: FromCompositeFieldPath
+        #   fromFieldPath: "spec.parameters.location"
+        #   toFieldPath: "spec.forProvider.vars[1].value"
+        #   transforms:
+        #     - type: map
+        #       map:
+        #         east-coast: us-east1-b
+        #         west-coast: us-west1-b
         - type: FromCompositeFieldPath
           fromFieldPath: "metadata.uid"
           toFieldPath: "spec.writeConnectionSecretToRef.name"
           transforms:
             - type: string
               string:
-                fmt: "%s-vm"
+                fmt: "%s-cluster"
       connectionDetails:
-        - fromConnectionSecretKey: address
+        - fromConnectionSecretKey: endpoint

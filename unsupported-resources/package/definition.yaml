@@ -2,47 +2,89 @@
 apiVersion: apiextensions.crossplane.io/v1
 kind: CompositeResourceDefinition
 metadata:
-  name: compositevms.example.org
+  name: compositeclusters.hopin.com
 spec:
-  group: example.org
+  group: hopin.com
   names:
-    kind: CompositeVM
-    plural: compositevms
+    kind: CompositeCluster
+    plural: compositeclusters
   claimNames:
-    kind: VM
-    plural: vms
+    kind: Cluster
+    plural: clusters
   connectionSecretKeys:
     - address
   defaultCompositionRef:
-    name: compositevms.example.org
+    name: compositeclusters.hopin.com
   versions:
-  - name: v1alpha1
-    served: true
-    referenceable: true
-    schema:
-      openAPIV3Schema:
-        type: object
-        properties:
-          spec:
-            type: object
-            properties:
-              parameters:
-                type: object
-                properties:
-                  size:
-                    type: string
-                    default: small
-                    enum:
-                     - small
-                     - medium
-                     - large
-                  location:
-                    type: string
-                    enum:
-                     - west-coast
-                     - east-coast
-                required:
-                  - size
-                  - location
-            required:
-              - parameters
+    - name: v1alpha1
+      served: true
+      referenceable: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          properties:
+            spec:
+              type: object
+              properties:
+                parameters:
+                  type: object
+                  properties:
+                    environment:
+                      type: string
+                      default: dev
+                      enum:
+                        - dev
+                        - int
+                        - evil
+                        - prod
+                        - scale
+                        - stg
+                    name:
+                      type: string
+                    region:
+                      type: string
+                      default: eu-west-1
+                    profile:
+                      type: string
+                      default: default
+                    privateSubnets:
+                      type: array
+                      items:
+                        type: string
+                    publicSubnets:
+                      type: array
+                      items:
+                        type: string
+                    branch:
+                      type: string
+                      default: main
+                    fluxVersion:
+                      type: string
+                      default: "v0.22.0"
+                    kubernetesVersion:
+                      type: string
+                      default: "1.19"
+                    minSize:
+                      type: integer
+                      default: 3
+                    maxSize:
+                      type: integer
+                      default: 10
+                    initialSize:
+                      type: integer
+                      default: 3
+                    instanceTypes:
+                      type: array
+                      items:
+                        type: string
+                      default:
+                        - "c5.xlarge"
+                    instanceDiskSize:
+                      type: integer
+                      default: 512
+                  required:
+                    - name
+                    - privateSubnets
+                    - publicSubnets
+              required:
+                - parameters

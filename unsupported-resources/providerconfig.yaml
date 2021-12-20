@@ -3,31 +3,65 @@ kind: ProviderConfig
 metadata:
   name: default
 spec:
-  # Note that unlike most provider configs this one supports an array of
-  # credentials. This is because each Terraform workspace uses a single
-  # Crossplane provider config, but could use multiple Terraform providers each
-  # with their own credentials.
   credentials:
-  - filename: gcp-credentials.json
-    source: Secret
-    secretRef:
-      namespace: crossplane-system
-      name: gcp-credentials
-      key: credentials
-  # This optional configuration block can be used to inject HCL into any
-  # workspace that uses this provider config, for example to setup Terraform
-  # providers.
+    - filename: .git-credentials # use exactly this filename
+      source: Secret
+      secretRef:
+        namespace: crossplane-system
+        name: git-credentials
+        key: .git-credentials
   configuration: |
-      provider "google" {
-        credentials = "gcp-credentials.json"
-        project     = "crossplane-example"
-      }
+    provider "sops" {}
 
-      // Modules _must_ use remote state. The provider does not persist state.
-      terraform {
-        backend "kubernetes" {
-          secret_suffix     = "providerconfig-default"
-          namespace         = "crossplane-system"
-          in_cluster_config = true
+    provider "flux" {}
+
+    provider "github" {
+      owner = var.github_owner
+      token = data.sops_file.github_token.data["token"]
+    }
+
+    provider "tls" {}
+
+    // Modules _must_ use remote state. The provider does not persist state.
+    terraform {
+      required_providers {
+        aws = {
+          source  = "hashicorp/aws"
+          version = "~> 3.23"
+        }
+        flux = {
+          source  = "fluxcd/flux"
+          version = "= 0.7.2"
+        }
+        github = {
+          source  = "integrations/github"
+          version = ">= 4.2.0"
+        }
+        kubectl = {
+          source  = "gavinbunney/kubectl"
+          version = "= 1.11.3"
+        }
+        sops = {
+          source = "carlpett/sops"
+          version = ">=0.5.3"
+        }
+        tls = {
+          source = "hashicorp/tls"
+          version = ">=3.0.0"
+        }
+        null = {
+          source = "hashicorp/null"
+          version = "~> 3.0"
+        }
+        random = {
+          source  = "hashicorp/random"
+          version = "~> 3.1.0"
         }
       }
+
+      backend "kubernetes" {
+        secret_suffix     = "providerconfig-default"
+        namespace         = "crossplane-system"
+        in_cluster_config = true
+      }
+    }
